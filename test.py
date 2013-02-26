@@ -11,12 +11,8 @@ def sigmoid(x):
   return 1/(1+exp(-x))
 
 def nsigmoid(x):
-  r = x.max()-x.min()
-  m = median(x)
-  return sigmoid((x-m)/r*3)
+  return 1/(1+exp(-(x-x.mean())/x.std()))
 
-def normalize(x):
-  return 0.5*(1+special.erf((x-x.mean())/x.std()/2))
 
 class PCA(object):
   def __init__(self, dim):
