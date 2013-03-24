@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/local/bin/python
 # -*- coding: utf-8 -*-
 from skimage import io, exposure, filter, morphology, feature
 
@@ -13,7 +13,7 @@ import scipy.ndimage.measurements as meas
 from scipy import ndimage
 from scipy import misc
 
-debug = True
+debug = False
 argc = len(sys.argv)
 if argc != 2:
   print 'please input arguments'
@@ -32,7 +32,7 @@ img = io.imread(fname,as_grey=True)
 # img = filter.median_filter(img,radius=2)
 
 # downsample
-img = misc.imresize(img,(200,300)).astype(np.float32)
+img = misc.imresize(img,(200,400)).astype(np.float32)
 
 l = np.max(img) - np.min(img)
 
@@ -119,9 +119,13 @@ def calc_electric_field(y,x):
   return ev
 
 # electric field
-eimg = np.fromfunction(calc_electric_field, img.shape, dtype=np.float32)
-eimg = np.abs(eimg)
-eimg[np.nonzero(labeled_img)] = 0
+efield = np.fromfunction(calc_electric_field, img.shape, dtype=np.float32)
+efield[np.nonzero(labeled_img)] = 0.0
+epower = np.abs(efield)
+
+import numpy.random as rand
+
+print morphology.is_local_maximum
 
 # original image
 
@@ -143,7 +147,7 @@ plt.figure(1)
 plt.subplot(211)
 imshow(img,cmap=cm.Greys_r)
 plt.subplot(212)
-imshow(eimg)
+imshow(epower)
 plt.colorbar()
 plt.savefig(fname + ".png")
-
+show()
