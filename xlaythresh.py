@@ -1,12 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-from skimage import io, exposure, filter, morphology
+from skimage import io, exposure, filter, morphology, feature
 
 from pylab import imshow, show
 import sys
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import scipy.ndimage.filters as scifilters
+import scipy.signal as sig
 import numpy as np
 import scipy.ndimage.measurements as meas
 from scipy import ndimage
@@ -15,7 +16,7 @@ from scipy import misc
 debug = True
 argc = len(sys.argv)
 if argc != 2:
-  print 'argument please'
+  print 'please input arguments'
   quit()
 
 fname = sys.argv[1]
@@ -28,7 +29,7 @@ fname = sys.argv[1]
 
 img = io.imread(fname,as_grey=True)
 
-img = filter.median_filter(img,radius=2)
+# img = filter.median_filter(img,radius=2)
 
 # downsample
 img = misc.imresize(img,(200,300)).astype(np.float32)
@@ -50,6 +51,7 @@ if debug:
 # smoothing
 n = scifilters.gaussian_filter(n.astype(np.float32),1.5)
 
+
 if debug:
   plt.plot(bins[:len(n)],n)
   show()
@@ -65,8 +67,8 @@ for i in xrange(len(n[1:-1])):
   if minima[i]:
     argminima.append(bins[i+1])
 
-# print argmaxima
-# print argminima
+print argmaxima
+print argminima
 
 # distribute marker points
 markers = np.zeros_like(img)
