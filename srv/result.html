@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset='utf-8'>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<title>result</title>
+<script>
+cresize = function(){
+  var w = $(window).width();
+  var h = $(window).height();
+  m = Math.min(w,h);
+  $("canvas").css({
+      width : m * 0.75,
+      height : m * 0.75
+  });
+};
+$(window).bind({
+  resize : cresize
+});
+function create($p,d){
+  var div = $("<div/>");
+  var name = $("<h2/>");
+  name.text(d.fname);
+  div.append(name);
+  var detail = $("<ul/>");
+  var lit = $("<li/>").text("d/R = " + d.rel);
+  var lir = $("<li/>").text("R = " + d.r);
+  var nd = (d.px0 - d.px1) * (d.px0 - d.px1) + (d.py0 - d.py1) * (d.py0 - d.py1);
+  nd = Math.sqrt(nd);
+  var lid = $("<li/>").text("d = " + nd);
+  detail.append(lit);
+  detail.append(lir);
+  detail.append(lid);
+  div.append(detail);
+  var can = $("<canvas/>");
+  can.attr({"id":d.fname,"width":d.width,"height":d.height});
+  can.css("border","1px solid #000000");
+  var ctx = can[0].getContext('2d');
+  var img = new Image();
+  img.onload = function () {
+    ctx.drawImage(img,0,0);
+    ctx.lineWidth=3;
+    ctx.strokeStyle = 'rgb(255,187,89)';
+    ctx.beginPath();
+    ctx.arc(d.cx,d.cy,d.r,0, Math.PI*2,false);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgb(89,255,187)';
+    ctx.beginPath();
+    ctx.moveTo(d.px0,d.py0);
+    ctx.lineTo(d.px1,d.py1);
+    ctx.stroke();
+  };
+  img.src = d.fname;
+  div.append(can);
+  $p.append(div);
+}
+$(document).ready(function() {
+  $.getJSON("./result.json", function(data) {
+    demo = $("#demo");
+    var len = data.length;
+    for(var i = 0; i < len; i++) {
+      create(demo,data[i]);
+    }
+    cresize();
+  });
+});
+</script>
+</head>
+<body>
+<div id="demo",width="250"></div>
+</body>
+</html>
+
