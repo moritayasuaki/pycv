@@ -20,7 +20,7 @@ from skimage import feature
 from skimage.util import img_as_ubyte, img_as_float
 from skimage import io
 
-debug = False
+debug = True
 
 
 # color k-mean
@@ -60,51 +60,61 @@ def findminpos(obj0,obj1) :
 
 
 def run(image):
-
-# adjustment color of image
-  image = exposure.adjust_gamma(image,gamma=0.4)
   image = img_as_ubyte(image)
-
-# denoise image
-  denoised = rank.median(image, disk(5))
-
-# find continuous region (low gradient) --> markers
-
   height = len(image[0,:])
   width = len(image[:,0])
 
   size = height * width
 
   slen = np.sqrt(size)
+ # denoise image
+  denoised = rank.median(image, disk(5))
 
-  markers = rank.gradient(denoised, disk(slen*0.004)) < 10
-  markers = remove_small_objects(markers,size*0.0005)
-  markers, nmarks = ndimage.label(markers)
+  # adjustment color of image
+  hist, bins = exposure.histogram(denoised)
+  cumhist = np.cumsum(hist)
+  thresh = np.array([0,0])
+  thn = 0
+  for i,cum in enumerate(cumhist):
+    if (thn == 0 and cum >= 80000):
+      thn+=1
+      thresh[0] = bins[i]
+    if (thn == 1 and cum >= 640000):
+      thn+=1
+      thresh[1] = bins[i]
+  low = denoised < thresh[0]
+  mid = (denoised >= thresh[0]) * (denoised < thresh[1])
+  high = denoised >= thresh[1]
+  ddenoised = rank.median(image, disk(8))
+  # markers = rank.gradient(ddenoised, disk(slen*0.004)) < 200/(thresh[1]-thresh[0])
+  markers = rank.gradient(ddenoised, disk(slen*0.004)) < 10
 
-#local gradient
-  gradient = rank.gradient(denoised, disk(1))
 
-# process the watershed
-  seg = watershed(gradient, markers) - 1
+  # find continuous region (low gradient) --> markers
 
+  low*=markers
+  low=remove_small_objects(low,size*0.0005)
+  mid*=markers
+  mid=remove_small_objects(mid,size*0.0005)
+  high*=markers
+  high=remove_small_objects(high,size*0.0005)
 
-  cs = colormeans(image,seg,nmarks)
-  k = 4
-
-  center, dist = cluster.vq.kmeans(cs,k)
-  scenter = np.sort(center)
-  code, distance = cluster.vq.vq(cs,scenter)
-
-
-  mseg = merge(seg,code)
-
-  electroads,n = ndimage.label(mseg == 0)
-  trigger = mseg == 1
-  tube = mseg != 3
-
+  # local gradient
+  gradient = rank.gradient(image, disk(1))
+  t,n = ndimage.label(low + mid + high)
   if debug:
-    plt.imshow(electroads+tube)
+    plt.imshow(t)
     plt.show()
+  # process the watershed
+  mseg = watershed(gradient, t) - 1
+  if debug:
+    plt.imshow(gradient)
+    plt.show()
+    plt.imshow(mseg*100+image)
+    plt.show()
+
+  electroads,nelectroad = ndimage.label(mseg == 0)
+  tube = mseg == 2
 
 
   t0 = tube
@@ -123,8 +133,6 @@ def run(image):
   mri,my,mx = np.unravel_index(np.argmax(houghs),houghs.shape)
   mr = rads[mri]
 
-# circle = draw.circle_perimeter(my,mx,rads[mr])
-# draw.set_color(t3, circle, 2)
   d3 = morphology.binary_dilation(t3,disk(1))
   d2 = ndimage.zoom(d3,(2,2)) * t2
 
@@ -160,10 +168,30 @@ def run(image):
 
   circle = draw.circle_perimeter(my,mx,mr)
 
+  el00 = []
+  el10 = []
+  if nelectroad < 2:
+    return "error"
+  elif nelectroad == 2:
+    el00 = electroads==1
+    el10 = electroads==2
+  else:
+    el00s = 0
+    el10s = 0
+    for i in np.arange(nelectroad):
+      t = i+1
+      elt = electroads == t
+      temps = np.sum(elt)
+      if el00s < temps :
+        el10s = el00s
+        el00s = temps
+        el10 = el00
+        el00 = elt
+      elif el10s < temps :
+        el10s = temps
+        el10 = elt
 
 
-  el00 = electroads==1
-  el10 = electroads==2
   el01 = measure.block_reduce(el00,(2,2),func=np.min) # 512
   el11 = measure.block_reduce(el10,(2,2),func=np.min)
   el02 = measure.block_reduce(el01,(2,2),func=np.min) # 256
@@ -207,19 +235,22 @@ def run(image):
   d = np.sqrt(minnorm)/mr
 
   if debug:
-    io.imshow(cimage)
-    io.show()
+    plt.imshow(tube*100+image)
+    plt.show()
 
   return (cimage,d,mr,(my,mx),(y0,x0),(y1,x1))
 
 # loading image
 if debug:
-  fnames = ["./data/S12057-2_s.jpg","./data/S12058-8_t.jpg"]
+  fnames = ["./data/S12057-2_s.jpg","./data/S12058-8_t.jpg","./data2/1S.jpg","./data2/1T.jpg","./data3/5008-2 rl.jpg","./data3/5008-2 tb.jpg","./data4/No.2_0H_Side.jpg","./data4/No.2_0H_Top.jpg"]
 else:
   fnames = sys.argv[1:]
 
 for fname in fnames:
   image = io.imread(fname,as_grey=True)
+  if debug:
+    run(image)
+    continue
   cimage,d,r,center,p0,p1 = run(image)
   io.imsave(fname+".png",cimage)
   f = open(fname+".txt","w")

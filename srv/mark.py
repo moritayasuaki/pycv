@@ -1,11 +1,15 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# coding:utf-8
 from scipy import ndimage
+import os
 import sys
 import matplotlib.pyplot as plt
 import scipy.ndimage as ndimage
 import scipy.cluster as cluster
 import scipy.fftpack as fftpack
 import numpy as np 
+import json
+import glob
 from skimage import measure
 from skimage import draw
 from skimage import morphology
@@ -212,20 +216,30 @@ def run(image):
 
   return (cimage,d,mr,(my,mx),(y0,x0),(y1,x1))
 
-# loading image
-if debug:
-  fnames = ["./data/S12057-2_s.jpg","./data/S12058-8_t.jpg"]
-else:
-  fnames = sys.argv[1:]
+def rundir(path):
+  jpgs = glob.glob(path + '/*.jpg')
+  datalist = [];
+  for jpg in jpgs :
+    fname = os.path.basename(jpg)
+    image = io.imread(jpg,as_grey=True)
+    cimage,rel,r,center,p0,p1 = run(image)
+    data = { 'fname':fname,
+             'width':image.shape[1],
+             'height':image.shape[0],
+             'rel':rel,
+             'r':r,
+             'cx':center[1],
+             'cy':center[0],
+             'px0':p0[1],
+             'py0':p0[0],
+             'px1':p1[1],
+             'py1':p1[0] }
+    datalist.append(data)
+    js = json.dumps(datalist)
+    fd = open(path + '/result.json','w')
+    fd.write(js)
+    fd.close()
+  return
 
-for fname in fnames:
-  image = io.imread(fname,as_grey=True)
-  cimage,d,r,center,p0,p1 = run(image)
-  io.imsave(fname+".png",cimage)
-  f = open(fname+".txt","w")
-  f.write(fname+", ")
-  f.write(str(d)+", ")
-  f.write(str(r)+", ")
-  f.write(str(center)+", ")
-  f.write(str(p0)+", ")
-  f.write(str(p1)+"\n")
+dirname = sys.argv[1]
+rundir(dirname)

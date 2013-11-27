@@ -54,15 +54,29 @@ function create($p,d){
   div.append(can);
   $p.append(div);
 }
-$(document).ready(function() {
+
+gdata = []
+
+json_update = function () {
   $.getJSON("./result.json", function(data) {
+    if(gdata.length == data.length){
+      return;
+    }
+    gdata = data;
     demo = $("#demo");
     var len = data.length;
+    console.log(len);
+    demo.empty();
     for(var i = 0; i < len; i++) {
       create(demo,data[i]);
     }
     cresize();
   });
+};
+
+$(document).ready(function() {
+  json_update()
+  window.setInterval(json_update,1000)
 });
 </script>
 </head>
