@@ -99,5 +99,5 @@ def do_exec(path):
   datalist = [];
   redirect("/statics/" + path + "/result.html")
 
-run(host='10.10.230.171', port=8080)
+run(host='localhost', port=8080)
 

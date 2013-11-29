@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from scipy import ndimage
+from scipy import stats
 import sys
 import matplotlib.pyplot as plt
 import scipy.ndimage as ndimage
@@ -20,7 +21,7 @@ from skimage import feature
 from skimage.util import img_as_ubyte, img_as_float
 from skimage import io
 
-debug = True
+debug = False
 
 # color k-mean
 def colormeans(img,labeled_img,nlabel):
@@ -57,25 +58,43 @@ def findminpos(obj0,obj1) :
         mp1 = p1
   return (mp0,mp1,minnorm)
 
+
+def flat(image,axis,a) :
+  fimg = img_as_float(image)
+  fs = np.mean(fimg,axis) 
+  iss = np.arange(len(fs))
+  slp, intc, _, _, _= stats.linregress(iss,fs)
+  dss = iss * slp
+  dimg = fimg - a * np.outer(np.ones(fimg.shape[1]),dss)
+  dimg = exposure.rescale_intensity(dimg,in_range = (np.min(dimg),np.max(dimg)),out_range =(0.0,1.0))
+  return dimg
+
+
+def enhance(image,lthresh) :
+  image = denoise(image,1)
+  image = img_as_float(image)
+  image2 = exposure.adjust_sigmoid(image,(lthresh[0]+lthresh[1])/2, gain = 5/(lthresh[1]-lthresh[0]))
+  image3 = exposure.adjust_sigmoid(image,(lthresh[2]+lthresh[3])/2, gain = 5/(lthresh[3]-lthresh[2]))
+  return (image2 + image3)/2
+
 def denoise(image,n):
   sq = square(3)
   denoised = image
   for i in np.arange(3):
     denoised = rank.median(denoised,sq)
-  return denoised
-
+  return img_as_float(denoised)
 
 def run(image):
-  image = img_as_ubyte(image)
+  fimage = flat(image,0,0.35)
   height = len(image[0,:])
   width = len(image[:,0])
+
   size = height * width
   slen = np.sqrt(size)
   # denoise image
-  image = img_as_ubyte(image)
-  denoised = denoise(image,2)
-  cumsums,levels = exposure.cumulative_distribution(denoised)
-  nthresh = [0.08,0.15,0.7,0.8]
+  denoised = denoise(fimage,1)
+  cumsums,levels = exposure.cumulative_distribution(denoised,nbins=256)
+  nthresh = [0.05,0.15,0.6,0.8]
   lthresh = []
   for i,cumsum in enumerate(cumsums):
     if cumsum >= nthresh[0] :
@@ -86,56 +105,50 @@ def run(image):
   lthresh = np.array(lthresh)
 
   low = denoised < lthresh[0]
-  low = remove_small_objects(low,20)
+  low = remove_small_objects(low,100)
   mid = (denoised >= lthresh[1]) * (denoised < lthresh[2])
-  mid = remove_small_objects(mid,20)
+  mid = remove_small_objects(mid,100)
   high = (denoised >= lthresh[3])
-  high = remove_small_objects(high,20)
+  high = remove_small_objects(high,100)
   high[0,:] = 1
   high[-1,:] = 1
   high[:,0] = 1
   high[:,-1] = 1
-  eimg = exposure.rescale_intensity(denoised,in_range=(lthresh[0],lthresh[3]))
-  harris = feature.corner_kitchen_rosenfeld(eimg)
-  if debug:
-    io.imshow(harris)
-    io.show()
-  # we can process adjust_gamma for eimg
-
-  # edenoised = rank.median(eimg, square(10)) # non-obvious parameter
-  # gr = rank.gradient(denoised, square(slen*0.01)) # non-obvious parameter
-  # splitter = gr <= 4
-  # if debug:
-    # io.imshow(splitter)
-    # io.show()
-    # return
-
-  # find continuous region (low gradient) --> markers
-
-  # low*=splitter
-  # low=remove_small_objects(low,size*0.00005)
-  # mid*=splitter
-  # mid=remove_small_objects(mid,size*0.00005)
-  # high*=splitter
-  # high=remove_small_objects(high,size*0.0005)
-
+  enhanced = enhance(denoised,lthresh)
   # local gradient
-  gradient = rank.gradient(eimg, square(10))
-  t,n = ndimage.label(low + mid + high)
-  if debug:
-    io.imshow(eimg)
-    io.show()
-    io.imshow(low + 2*mid + 3*high)
-    io.show()
+  gradient = rank.gradient(enhanced, disk(5))
+  # if debug:
+    # plt.subplot(2,2,1)
+    # plt.plot(levels,cumsums)
+    # cumsums, levels = exposure.cumulative_distribution(enhanced)
+    # plt.subplot(2,2,2)
+    # plt.plot(levels,cumsums)
+    # plt.subplot(2,2,3)
+    # plt.imshow(denoised)
+    # plt.subplot(2,2,4)
+    # plt.imshow(enhanced)
+    # plt.show()
+    # plt.imshow(gradient)
+    # plt.show()
+    # return
+  menhanced = filter.gaussian_filter(enhanced,5)
+  grad = rank.gradient(menhanced,disk(3))
+  l = morphology.remove_small_objects(grad < np.percentile(grad,20))
+  t,n = ndimage.label(l)
   # process the watershed
   # mseg = watershed(gradient, t) - 1
   mseg = watershed(gradient, low + mid*2 + high*3) - 1
-  if debug:
-    plt.imshow(mseg)
-    plt.show()
-    return
-
+  # if debug:
+    # cimg = color.gray2rgb(image)
+    # clabel = color.label2rgb(mseg)
+    # plt.imshow(t)
+    # plt.subplot(1,2,1)
+    # plt.imshow(clabel)
+    # plt.subplot(1,2,2)
+    # plt.show()
+    # return
   electroads,nelectroad = ndimage.label(mseg == 0)
+  
   tube = mseg == 2
 
 
@@ -255,27 +268,26 @@ def run(image):
   cimage[y0,x0] = (255,255,255)
   cimage[y1,x1] = (255,255,255)
   d = np.sqrt(minnorm)/mr
-
-  if debug:
-    plt.imshow(tube*100+image)
+  if debug :
+    plt.subplot(1,2,1)
+    plt.imshow(mseg)
+    plt.subplot(1,2,2)
+    plt.imshow(cimage)
     plt.show()
+    return
 
   return (cimage,d,mr,(my,mx),(y0,x0),(y1,x1))
 
 # loading image
-if debug:
-  fnames = ["./data/S12058-8_t.jpg","./data/S12057-1_s.jpg","./data/S12057-3_t.jpg"]
+if debug :
+  fnames = ["./data/S12058-8_t.jpg","./data4/No.2_0H_Side.jpg","./data3/5008-2 rl.jpg"]
 else:
   fnames = sys.argv[1:]
 
 for fname in fnames:
   image = io.imread(fname,as_grey=True)
   if debug:
-    imageu = image +np.random.standard_normal(image.shape)*0.05
-    imageu = exposure.rescale_intensity(imageu,in_range=(0.0,1.0),out_range=(0.2,1.0))
-    imageu = exposure.adjust_gamma(imageu,0.4)
     run(image)
-    run(imageu)
     continue
   cimage,d,r,center,p0,p1 = run(image)
   io.imsave(fname+".png",cimage)
@@ -287,4 +299,3 @@ for fname in fnames:
   f.write(str(p0)+", ")
   f.write(str(p1)+"\n")
   f.close()
-  print (fname + " finished.") 

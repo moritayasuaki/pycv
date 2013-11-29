@@ -13,7 +13,7 @@ import glob
 from skimage import measure
 from skimage import draw
 from skimage import morphology
-from skimage.morphology import watershed, disk, remove_small_objects
+from skimage.morphology import watershed, disk, remove_small_objects, square
 from skimage import color
 from skimage import data
 from skimage.filter import rank
@@ -23,9 +23,9 @@ from skimage import transform
 from skimage import feature
 from skimage.util import img_as_ubyte, img_as_float
 from skimage import io
+from scipy import stats
 
 debug = False
-
 
 # color k-mean
 def colormeans(img,labeled_img,nlabel):
@@ -63,52 +63,97 @@ def findminpos(obj0,obj1) :
   return (mp0,mp1,minnorm)
 
 
+def flat(image,axis,a) :
+  fimg = img_as_float(image)
+  fs = np.mean(fimg,axis) 
+  iss = np.arange(len(fs))
+  slp, intc, _, _, _= stats.linregress(iss,fs)
+  dss = iss * slp
+  dimg = fimg - a * np.outer(np.ones(fimg.shape[1]),dss)
+  dimg = exposure.rescale_intensity(dimg,in_range = (np.min(dimg),np.max(dimg)),out_range =(0.0,1.0))
+  return dimg
+
+
+def enhance(image,lthresh) :
+  image = denoise(image,1)
+  image = img_as_float(image)
+  image2 = exposure.adjust_sigmoid(image,(lthresh[0]+lthresh[1])/2, gain = 5/(lthresh[1]-lthresh[0]))
+  image3 = exposure.adjust_sigmoid(image,(lthresh[2]+lthresh[3])/2, gain = 5/(lthresh[3]-lthresh[2]))
+  return (image2 + image3)/2
+
+def denoise(image,n):
+  sq = square(3)
+  denoised = image
+  for i in np.arange(3):
+    denoised = rank.median(denoised,sq)
+  return img_as_float(denoised)
+
 def run(image):
-
-# adjustment color of image
-  image = exposure.adjust_gamma(image,gamma=0.4)
-  image = img_as_ubyte(image)
-
-# denoise image
-  denoised = rank.median(image, disk(5))
-
-# find continuous region (low gradient) --> markers
-
+  fimage = flat(image,0,0.35)
   height = len(image[0,:])
   width = len(image[:,0])
 
   size = height * width
-
   slen = np.sqrt(size)
+  # denoise image
+  denoised = denoise(fimage,1)
+  cumsums,levels = exposure.cumulative_distribution(denoised,nbins=256)
+  nthresh = [0.05,0.15,0.6,0.8]
+  lthresh = []
+  for i,cumsum in enumerate(cumsums):
+    if cumsum >= nthresh[0] :
+      lthresh.append(levels[i])
+      del nthresh[0]
+      if nthresh == [] :
+        break
+  lthresh = np.array(lthresh)
 
-  markers = rank.gradient(denoised, disk(slen*0.004)) < 10
-  markers = remove_small_objects(markers,size*0.0005)
-  markers, nmarks = ndimage.label(markers)
-
-#local gradient
-  gradient = rank.gradient(denoised, disk(1))
-
-# process the watershed
-  seg = watershed(gradient, markers) - 1
-
-
-  cs = colormeans(image,seg,nmarks)
-  k = 4
-
-  center, dist = cluster.vq.kmeans(cs,k)
-  scenter = np.sort(center)
-  code, distance = cluster.vq.vq(cs,scenter)
-
-
-  mseg = merge(seg,code)
-
-  electroads,n = ndimage.label(mseg == 0)
-  trigger = mseg == 1
-  tube = mseg != 3
-
-  if debug:
-    plt.imshow(electroads+tube)
-    plt.show()
+  low = denoised < lthresh[0]
+  low = remove_small_objects(low,100)
+  mid = (denoised >= lthresh[1]) * (denoised < lthresh[2])
+  mid = remove_small_objects(mid,100)
+  high = (denoised >= lthresh[3])
+  high = remove_small_objects(high,100)
+  high[0,:] = 1
+  high[-1,:] = 1
+  high[:,0] = 1
+  high[:,-1] = 1
+  enhanced = enhance(denoised,lthresh)
+  # local gradient
+  gradient = rank.gradient(enhanced, disk(5))
+  # if debug:
+    # plt.subplot(2,2,1)
+    # plt.plot(levels,cumsums)
+    # cumsums, levels = exposure.cumulative_distribution(enhanced)
+    # plt.subplot(2,2,2)
+    # plt.plot(levels,cumsums)
+    # plt.subplot(2,2,3)
+    # plt.imshow(denoised)
+    # plt.subplot(2,2,4)
+    # plt.imshow(enhanced)
+    # plt.show()
+    # plt.imshow(gradient)
+    # plt.show()
+    # return
+  menhanced = filter.gaussian_filter(enhanced,5)
+  grad = rank.gradient(menhanced,disk(3))
+  l = morphology.remove_small_objects(grad < np.percentile(grad,20))
+  t,n = ndimage.label(l)
+  # process the watershed
+  # mseg = watershed(gradient, t) - 1
+  mseg = watershed(gradient, low + mid*2 + high*3) - 1
+  # if debug:
+    # cimg = color.gray2rgb(image)
+    # clabel = color.label2rgb(mseg)
+    # plt.imshow(t)
+    # plt.subplot(1,2,1)
+    # plt.imshow(clabel)
+    # plt.subplot(1,2,2)
+    # plt.show()
+    # return
+  electroads,nelectroad = ndimage.label(mseg == 0)
+  
+  tube = mseg == 2
 
 
   t0 = tube
@@ -127,8 +172,6 @@ def run(image):
   mri,my,mx = np.unravel_index(np.argmax(houghs),houghs.shape)
   mr = rads[mri]
 
-# circle = draw.circle_perimeter(my,mx,rads[mr])
-# draw.set_color(t3, circle, 2)
   d3 = morphology.binary_dilation(t3,disk(1))
   d2 = ndimage.zoom(d3,(2,2)) * t2
 
@@ -164,10 +207,30 @@ def run(image):
 
   circle = draw.circle_perimeter(my,mx,mr)
 
+  el00 = []
+  el10 = []
+  if nelectroad < 2:
+    return "error"
+  elif nelectroad == 2:
+    el00 = electroads==1
+    el10 = electroads==2
+  else:
+    el00s = 0
+    el10s = 0
+    for i in np.arange(nelectroad):
+      t = i+1
+      elt = electroads == t
+      temps = np.sum(elt)
+      if el00s < temps :
+        el10s = el00s
+        el00s = temps
+        el10 = el00
+        el00 = elt
+      elif el10s < temps :
+        el10s = temps
+        el10 = elt
 
 
-  el00 = electroads==1
-  el10 = electroads==2
   el01 = measure.block_reduce(el00,(2,2),func=np.min) # 512
   el11 = measure.block_reduce(el10,(2,2),func=np.min)
   el02 = measure.block_reduce(el01,(2,2),func=np.min) # 256
@@ -209,10 +272,13 @@ def run(image):
   cimage[y0,x0] = (255,255,255)
   cimage[y1,x1] = (255,255,255)
   d = np.sqrt(minnorm)/mr
-
-  if debug:
-    io.imshow(cimage)
-    io.show()
+  if debug :
+    plt.subplot(1,2,1)
+    plt.imshow(mseg)
+    plt.subplot(1,2,2)
+    plt.imshow(cimage)
+    plt.show()
+    return
 
   return (cimage,d,mr,(my,mx),(y0,x0),(y1,x1))
 
