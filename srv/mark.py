@@ -284,9 +284,7 @@ def run(image):
 
 def rundir(path):
   jpgs = glob.glob(path + '/*.jpg')
-  obj = {};
   datalist = [];
-  complete = False
   for jpg in jpgs :
     fname = os.path.basename(jpg)
     image = io.imread(jpg,as_grey=True)
@@ -303,13 +301,14 @@ def rundir(path):
              'px1':p1[1],
              'py1':p1[0] }
     datalist.append(data)
-    obj['list'] = datalist
-    obj['complete'] = False
+    obj = { 'list': datalist,
+            'complete': False }
     js = json.dumps(obj)
     fd = open(path + '/result.json','w')
     fd.write(js)
     fd.close()
-  obj['complete'] = True
+  obj = { 'list': datalist,
+          'complete': True }
   js = json.dumps(obj)
   fd = open(path + '/result.json','w')
   fd.write(js)
@@ -317,3 +316,4 @@ def rundir(path):
   return
 
 dirname = sys.argv[1]
+rundir(dirname)
