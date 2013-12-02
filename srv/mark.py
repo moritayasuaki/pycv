@@ -210,7 +210,8 @@ def run(image):
   el00 = []
   el10 = []
   if nelectroad < 2:
-    return "error"
+    print "error!"
+    return (image,(1.0*width/2)/(1.0*(slen/3)),slen/3,(height/2,width/2),(height/2,width/4),(height/2,(3*width)/4))
   elif nelectroad == 2:
     el00 = electroads==1
     el10 = electroads==2
