@@ -59,18 +59,26 @@ gdata = []
 
 json_update = function () {
   $.getJSON("./result.json", function(data) {
-    if(gdata.length == data.length){
+    if(gdata.list.length == data.list.length){
       return;
     }
     gdata = data;
+    list = data.list;
+    complete = data.complete;
     demo = $("#demo");
-    var len = data.length;
+    var len = list.length;
     console.log(len);
     demo.empty();
     for(var i = 0; i < len; i++) {
-      create(demo,data[i]);
+      create(demo,list[i]);
     }
     cresize();
+    if(complete){
+      $("#complete").text("Complete.");
+    }
+    else{
+      $("#complete").text("Please wait a minute...");
+    }
   });
 };
 
@@ -81,6 +89,7 @@ $(document).ready(function() {
 </script>
 </head>
 <body>
+<h1 id="complete">Please wait a munite...</h1>
 <div id="demo",width="250"></div>
 </body>
 </html>

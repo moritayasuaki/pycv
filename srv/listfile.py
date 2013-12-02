@@ -5,9 +5,13 @@ def listfile(path):
     for f in files:
       print f
 
-def path_include_ext(path,sext):
+def path_include_ext(path,sext,n=100):
   t = set()
+  i = 0;
   for path, dirs, files in os.walk(path):
+    i++
+    if (i == n) :
+      break;
     for fn in files:
       base,ext = os.path.splitext(fn)
       if ext == sext :
