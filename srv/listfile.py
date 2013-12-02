@@ -7,9 +7,9 @@ def listfile(path):
 
 def path_include_ext(path,sext,n=100):
   t = set()
-  i = 0;
+  i = 0
   for path, dirs, files in os.walk(path):
-    i++
+    i += 1
     if (i == n) :
       break;
     for fn in files:
