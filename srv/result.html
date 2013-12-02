@@ -55,25 +55,25 @@ function create($p,d){
   $p.append(div);
 }
 
-gdata = []
+glist = [];
+gcomplete = False;
 
 json_update = function () {
   $.getJSON("./result.json", function(data) {
-    if(gdata.list.length == data.list.length){
+    if(glist.length == data.list.length){
       return;
     }
-    gdata = data;
-    list = data.list;
-    complete = data.complete;
+    glist = data.list;
+    gcomplete = data.complete;
     demo = $("#demo");
-    var len = list.length;
+    var len = glist.length;
     console.log(len);
     demo.empty();
     for(var i = 0; i < len; i++) {
-      create(demo,list[i]);
+      create(demo,glist[i]);
     }
     cresize();
-    if(complete){
+    if(gcomplete){
       $("#complete").text("Complete.");
     }
     else{
