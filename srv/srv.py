@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # coding:utf-8
+import sys
+import socket
 from bottle import route, run, template, request, static_file, redirect
 from skimage import io
 import os
@@ -99,5 +101,9 @@ def do_exec(path):
   datalist = [];
   redirect("/statics/" + path + "/result.html")
 
-run(host='localhost', port=8080)
+if len(sys.argv) == 2 :
+  host = sys.argv[1]
+else :
+  host = socket.gethostbyname(socket.gethostname())
+run(host=host, port=8080)
 
