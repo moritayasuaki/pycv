@@ -3,43 +3,54 @@
 <head>
 <meta charset='utf-8'>
 <style type='text/css'>
-h1 {
-  clear:both;
+
+body {
+  background: #000;
+  color:#FFF;
+  font-family:"Courier New", Courier, monospace;
 }
-canvas {
-  float:left;
+.demo {
+  display: table;
+  margin:auto;
 }
-canvas:after {
-  clear:left;
+.container {
+  position:relative;
 }
-div {
-  clear:both;
-  float:left;
+
+.container canvas {
+  z-index:0;
 }
-div.info {
-  float:right;
+h2 {
+  margin:0;
+  padding:0;
 }
-div.info:after{
-  clear:right;
+.info {
+  position:absolute;
+  left:5px;
+  top:5px;
+  z-index:0;
 }
 dl {
-  clear:left;
+  margin: 0;
+  padding: 0;
 }
 dt {
-  float: left;
+  float:left;
   font-size:12px;
-  width: 20px;
-  font-weight: bold;
-  line-height:12px;
-  color: green;
+  margin:0;
+  line-height:13px;
+  color: #9F9;
 }
+
 dt:after {
   content: ":";
 }
+
 dd {
   font-size:12px;
-  line-height:12px;
-  padding:0 0 0 30px;
+  margin:0;
+  line-height:13px;
+  padding:0 0 0 50px;
 }
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
@@ -109,7 +120,8 @@ var Xlay = function(data)
 };
 
 var drawaxis = function(xlay,ctx){
-  ctx.strokeStyle = 'rgba(255,255,24,0.3)';
+  ctx.lineWidth=3;
+  ctx.strokeStyle = 'rgba(255,255,24,0.5)';
   var lp0 = {
     x: xlay.c.pos.x + 1024*Math.cos(xlay.theta),
     y: xlay.c.pos.y + 1024*Math.sin(xlay.theta)
@@ -124,20 +136,23 @@ var drawaxis = function(xlay,ctx){
   ctx.stroke();
 };
 var drawcircle = function(xlay,ctx){
-  ctx.strokeStyle = 'rgba(255,187,89,0.3)';
+  ctx.lineWidth=3;
+  ctx.strokeStyle = 'rgba(140,140,255,0.5)';
   ctx.beginPath();
   ctx.arc(xlay.c.pos.x,xlay.c.pos.y,xlay.c.r,0, Math.PI*2,false);
   ctx.stroke();
 };
 var drawline = function(xlay,ctx){
-  ctx.strokeStyle = 'rgba(89,255,187,0.3)';
+  ctx.lineWidth=3;
+  ctx.strokeStyle = 'rgba(89,255,187,0.5)';
   ctx.beginPath();
   ctx.moveTo(xlay.p0.x,xlay.p0.y);
   ctx.lineTo(xlay.p1.x,xlay.p1.y);
   ctx.stroke();
 };
 var drawcenter = function(xlay,ctx){
-  ctx.strokeStyle = 'rgba(255,255,24,0.7)';
+  ctx.lineWidth=3;
+  ctx.strokeStyle = 'rgba(255,255,24,0.8)';
   var lp0 = {
     x: xlay.c.pos.x + 5*Math.cos(xlay.theta),
     y: xlay.c.pos.y + 5*Math.sin(xlay.theta)
@@ -173,8 +188,10 @@ var infodraw = function(xlay){
   return function(){
     var div = $(document.getElementById(xlay.id));
     var info = div.children('.info');
+    var h2 = $("<h2/>").text(xlay.id);
     var dl = todl(xlay.simplify(),3);
     info.empty();
+    info.append(h2);
     info.append(dl);
   }
 };
@@ -184,7 +201,6 @@ var draw = function(xlay){
     var canv = div.children('canvas');
     var ctx = canv[0].getContext('2d');
     ctx.drawImage(xlay.img,0,0);
-    ctx.lineWidth=2;
     ctx.lineCap="round";
     drawaxis(xlay,ctx);
     drawcircle(xlay,ctx);
@@ -284,28 +300,26 @@ function todl(obj,level){
 
 Xlay.prototype = {
   create : function(){
-    var div = $("<div/>").attr({"id":this.id});
-    var name = $("<h2/>").text(this.id);
+    var div = $("<div/>").attr({"id":this.id}).addClass("container").css({"width":this.width,"height":this.height});
     var canv = $("<canvas/>").attr({"width":this.width,"height":this.height});
     var info = $("<div/>").addClass("info");
     canv.bind("mouseup",onmouseup(this));
     canv.bind("mousedown",onmousedown(this));
-    div.append(name);
     div.append(info);
     div.append(canv);
     return(div);
   },
   simplify : function(){
     return {
-      filename : this.id,
+      file : this.id,
       size : {
-        width: this.width,
-        height: this.height
+        w: this.width,
+        h: this.height
       },
       p0 : this.p0,
       p1 : this.p1,
       circle : this.c,
-      theta : this.theta
+      rad : this.theta
     };
   }
 };
@@ -330,8 +344,7 @@ gcomplete = false;
 up_timer = null;
 
 json_update = function () {
-  $.getJSON("./result.json", function(data) {
-    console.log(data);
+  $.get("./result.json", function(data) {
     for(var i = 0; i < data.list.length; i++){
       var exist = false;
       for(var j = 0; j < glist.length; j++){
@@ -342,7 +355,7 @@ json_update = function () {
       }
       if (!exist) {
         xlay = new Xlay(data.list[i]);
-        $("#demo").append(xlay.create());
+        $(".demo").append(xlay.create());
         glist.push(data.list[i]);
       }
     }
@@ -361,7 +374,7 @@ $(document).ready(function() {
 </head>
 <body>
 <h1 id="complete">Please wait a munite...</h1>
-<div id="demo",width="250"></div>
+<div class="demo"></div>
 </body>
 </html>
 
