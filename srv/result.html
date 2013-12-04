@@ -397,12 +397,15 @@ json_update = function () {
       $("#complete").text("Complete.");
       gcomplete = true;
       clearInterval(up_timer);
+      $("#complete").text("Please wait a minute...");
     }
+    return;
   });
 };
 
 $(document).ready(function() {
-  up_timer = window.setInterval(json_update,1000);
+  json_update()
+  up_timer = window.setInterval(json_update,1000)
 });
 
 </script>

@@ -69,7 +69,7 @@ def flat(image,axis,a) :
   iss = np.arange(len(fs))
   slp, intc, _, _, _= stats.linregress(iss,fs)
   dss = iss * slp
-  dimg = fimg - a * np.outer(np.ones(fimg.shape[1]),dss)
+  dimg = fimg - a * np.outer(np.ones(fimg.shape[0]),dss)
   dimg = exposure.rescale_intensity(dimg,in_range = (np.min(dimg),np.max(dimg)),out_range =(0.0,1.0))
   return dimg
 
@@ -267,18 +267,15 @@ def run(image):
   mline = draw.line(y0,x0,y1,x1)
   cimage = color.gray2rgb(image)
 
-  draw.set_color(cimage, circle, (0,255,0))
-  draw.set_color(cimage, mline, (255,0,0))
+  draw.set_color(cimage, circle, (0,1.0,0))
+  draw.set_color(cimage, mline, (1.0,0,0))
 
-  cimage[y0,x0] = (255,255,255)
-  cimage[y1,x1] = (255,255,255)
   d = np.sqrt(minnorm)/mr
   if debug :
-    plt.subplot(1,2,1)
-    plt.imshow(mseg)
-    plt.subplot(1,2,2)
-    plt.imshow(cimage)
-    plt.show()
+    cimage[morphology.skeletonize(el00)] = (1.0,1.0,0)
+    cimage[morphology.skeletonize(el10)] = (1.0,1.0,0)
+    io.imshow(cimage)
+    io.show()
     return
 
   return (cimage,d,mr,(my,mx),(y0,x0),(y1,x1))
@@ -287,8 +284,12 @@ def rundir(path):
   jpgs = glob.glob(path + '/*.jpg')
   datalist = [];
   for jpg in jpgs :
+    print jpg
     fname = os.path.basename(jpg)
     image = io.imread(jpg,as_grey=True)
+    if debug :
+      run(image)
+      continue 
     cimage,rel,r,center,p0,p1 = run(image)
     data = { 'fname':fname,
              'width':image.shape[1],
@@ -308,6 +309,8 @@ def rundir(path):
     fd = open(path + '/result.json','w')
     fd.write(js)
     fd.close()
+  if debug :
+    return
   obj = { 'list': datalist,
           'complete': True }
   js = json.dumps(obj)
@@ -317,4 +320,7 @@ def rundir(path):
   return
 
 dirname = sys.argv[1]
+if len(sys.argv) == 3:
+  if sys.argv[2] == '-d':
+    debug = True
 rundir(dirname)
