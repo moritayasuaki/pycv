@@ -6,14 +6,16 @@
 
 body {
   background: #000;
-  color:#FFF;
+  color:white;
   font-family:"Courier New", Courier, monospace;
 }
 .demo {
-  display: table;
+  display:table;
   margin:auto;
 }
 .container {
+  text-shadow: 1px 1px black;
+  margin : 5px;
   position:relative;
 }
 
@@ -23,12 +25,16 @@ body {
 h2 {
   margin:0;
   padding:0;
+  color:white;
 }
 .info {
   position:absolute;
+  padding:2px;
   left:5px;
   top:5px;
+  width:240px;
   z-index:0;
+  background-color:rgba(0,0,0,0.5);
 }
 dl {
   margin: 0;
@@ -39,7 +45,8 @@ dt {
   font-size:12px;
   margin:0;
   line-height:13px;
-  color: #9F9;
+  color: lightgreen;
+  padding:0;
 }
 
 dt:after {
@@ -50,7 +57,25 @@ dd {
   font-size:12px;
   margin:0;
   line-height:13px;
-  padding:0 0 0 50px;
+  padding:0 0 0 40px;
+  color: white;
+}
+footer {
+  font-family: "Times New Roman", Times, serif;
+  font-style: italic;
+  font-size:12px;
+  text-align: right;
+  color: gray;
+}
+p {
+  margin:3px;
+  padding:0px;
+}
+a:link {
+  color: #8888FF;
+}
+a:visited{
+  color: #FF88FF;
 }
 </style>
 <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
@@ -137,14 +162,14 @@ var drawaxis = function(xlay,ctx){
 };
 var drawcircle = function(xlay,ctx){
   ctx.lineWidth=3;
-  ctx.strokeStyle = 'rgba(140,140,255,0.5)';
+  ctx.strokeStyle = 'rgba(255,255,24,0.5)';
   ctx.beginPath();
   ctx.arc(xlay.c.pos.x,xlay.c.pos.y,xlay.c.r,0, Math.PI*2,false);
   ctx.stroke();
 };
 var drawline = function(xlay,ctx){
   ctx.lineWidth=3;
-  ctx.strokeStyle = 'rgba(89,255,187,0.5)';
+  ctx.strokeStyle = 'rgba(100,255,100,0.5)';
   ctx.beginPath();
   ctx.moveTo(xlay.p0.x,xlay.p0.y);
   ctx.lineTo(xlay.p1.x,xlay.p1.y);
@@ -152,7 +177,7 @@ var drawline = function(xlay,ctx){
 };
 var drawcenter = function(xlay,ctx){
   ctx.lineWidth=3;
-  ctx.strokeStyle = 'rgba(255,255,24,0.8)';
+  ctx.strokeStyle = 'rgba(255,100,24,0.8)';
   var lp0 = {
     x: xlay.c.pos.x + 5*Math.cos(xlay.theta),
     y: xlay.c.pos.y + 5*Math.sin(xlay.theta)
@@ -183,7 +208,7 @@ var update = function(xlay){
     (infodraw(xlay))();
     (draw(xlay))();
   }
-}
+};
 var infodraw = function(xlay){
   return function(){
     var div = $(document.getElementById(xlay.id));
@@ -210,6 +235,14 @@ var draw = function(xlay){
 };
 
 var onmouseup = function(xlay){
+  return function(e){
+    var target = $(e.target);
+    var pos = targetPos(e);
+    xlay.dragging = undefined;
+    target.unbind("mousemove");
+  };
+};
+var onmouseout = function(xlay){
   return function(e){
     var target = $(e.target);
     var pos = targetPos(e);
@@ -305,6 +338,7 @@ Xlay.prototype = {
     var info = $("<div/>").addClass("info");
     canv.bind("mouseup",onmouseup(this));
     canv.bind("mousedown",onmousedown(this));
+    canv.bind("mouseout",onmouseout(this));
     div.append(info);
     div.append(canv);
     return(div);
@@ -318,7 +352,7 @@ Xlay.prototype = {
       },
       p0 : this.p0,
       p1 : this.p1,
-      circle : this.c,
+      cir : this.c,
       rad : this.theta
     };
   }
@@ -360,6 +394,7 @@ json_update = function () {
       }
     }
     if(data.complete){
+      $("#complete").text("Complete.");
       gcomplete = true;
       clearInterval(up_timer);
     }
@@ -375,6 +410,10 @@ $(document).ready(function() {
 <body>
 <h1 id="complete">Please wait a munite...</h1>
 <div class="demo"></div>
+<footer>
+  <p>Powered by Moirta Yasuaki</p>
+  <p>Contact information: <a href="mailto:zousandazou@gmail.com">zousandazou@gmail.com</a></p>
+</footer>
 </body>
 </html>
 
